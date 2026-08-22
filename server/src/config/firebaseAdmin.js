@@ -1,13 +1,18 @@
 import admin from "firebase-admin";
-import dotenv from "dotenv";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+import { readFileSync } from "fs";
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-// You'll add serviceAccountKey.json in Step 2 (Firestore setup)
-// admin.initializeApp({
-//   credential: admin.credential.cert(serviceAccount),
-// });
+const serviceAccountPath = join(__dirname, "serviceAccountKey.json");
+const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, "utf8"));
 
-// export const db = admin.firestore();
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
 
-console.log("Firebase Admin config placeholder — set up in next step");
+export const db = admin.firestore();
+export const authAdmin = admin.auth();
+export default admin;
