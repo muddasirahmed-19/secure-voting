@@ -48,3 +48,46 @@ app.post("/api/seed-candidates", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+// Seed sample voters (simulated NADRA-style roll, run once)
+app.post("/api/seed-voters", async (req, res) => {
+  try {
+    const voters = [
+      {
+        cnic: "3520212345671",
+        fullName: "Ali Raza",
+        dob: "1998-05-14",
+        hasVoted: false,
+        faceDescriptor: null,
+        webAuthnCredentialId: null,
+      },
+      {
+        cnic: "3520298765432",
+        fullName: "Hina Sheikh",
+        dob: "1995-11-02",
+        hasVoted: false,
+        faceDescriptor: null,
+        webAuthnCredentialId: null,
+      },
+      {
+        cnic: "3520255566677",
+        fullName: "Usman Tariq",
+        dob: "2001-02-20",
+        hasVoted: false,
+        faceDescriptor: null,
+        webAuthnCredentialId: null,
+      },
+    ];
+
+    const batch = db.batch();
+    voters.forEach((v) => {
+      const ref = db.collection("voters").doc(v.cnic); // CNIC as document ID
+      batch.set(ref, v);
+    });
+    await batch.commit();
+
+    res.json({ status: "ok", message: "Voters seeded", count: voters.length });
+  } catch (err) {
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
