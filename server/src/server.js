@@ -91,3 +91,37 @@ app.post("/api/seed-voters", async (req, res) => {
     res.status(500).json({ status: "error", message: err.message });
   }
 });
+
+// Check if a CNIC is a registered, eligible voter
+app.post("/api/check-voter", async (req, res) => {
+  try {
+    const { cnic } = req.body;
+
+    if (!cnic || !/^\d{13}$/.test(cnic)) {
+      return res.status(400).json({ status: "error", message: "Invalid CNIC format" });
+    }
+
+    const voterRef = db.collection("voters").doc(cnic);
+    const voterSnap = await voterRef.get();
+
+    if (!voterSnap.exists) {
+      return res.status(404).json({ status: "error", message: "You are not a registered voter" });
+    }
+
+    const voter = voterSnap.data();
+
+    if (voter.hasVoted) {
+      return res.status(403).json({ status: "error", message: "You have already voted" });
+    }
+
+    // Eligible — return minimal info needed for next step (not the whole record)
+    res.json({
+      status: "ok",
+      message: "Voter eligible",
+      fullName: voter.fullName,
+      hasFaceOnFile: voter.faceDescriptor !== null,
+    });
+  } catch (err) {
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
