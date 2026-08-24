@@ -55,12 +55,21 @@ app.get("/api/db-test", async (req, res) => {
   }
 });
 
+// Seed sample candidates for both NA and PA levels, real party names
 app.post("/api/seed-candidates", async (req, res) => {
   try {
     const candidates = [
-      { name: "Ayesha Khan", party: "Progress Party", voteCount: 0 },
-      { name: "Bilal Ahmed", party: "Unity Alliance", voteCount: 0 },
-      { name: "Sara Malik", party: "Future Forward", voteCount: 0 },
+      // National Assembly candidates - NA-263
+      { name: "Zahid Khan", party: "Pakistan Tehreek-e-Insaf (PTI)", level: "NA", constituency: "NA-263", voteCount: 0 },
+      { name: "Naseer Ahmed Baloch", party: "Pakistan Muslim League (N)", level: "NA", constituency: "NA-263", voteCount: 0 },
+      { name: "Sana Jamali", party: "Pakistan Peoples Party (PPP)", level: "NA", constituency: "NA-263", voteCount: 0 },
+      { name: "Mir Aslam Raisani", party: "Balochistan Awami Party (BAP)", level: "NA", constituency: "NA-263", voteCount: 0 },
+
+      // Provincial Assembly candidates - PB-42
+      { name: "Rahim Dad Kakar", party: "Pakistan Tehreek-e-Insaf (PTI)", level: "PA", constituency: "PB-42", voteCount: 0 },
+      { name: "Fahmida Sultana", party: "Pakistan Muslim League (N)", level: "PA", constituency: "PB-42", voteCount: 0 },
+      { name: "Ghulam Rasool Marri", party: "Pakistan Peoples Party (PPP)", level: "PA", constituency: "PB-42", voteCount: 0 },
+      { name: "Yasmeen Lehri", party: "Balochistan Awami Party (BAP)", level: "PA", constituency: "PB-42", voteCount: 0 },
     ];
 
     const batch = db.batch();
@@ -70,17 +79,13 @@ app.post("/api/seed-candidates", async (req, res) => {
     });
     await batch.commit();
 
-    res.json({ status: "ok", message: "Candidates seeded", count: candidates.length });
+    res.json({ status: "ok", message: "Candidates re-seeded with NA/PA levels", count: candidates.length });
   } catch (err) {
     res.status(500).json({ status: "error", message: err.message });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
-
-// Seed sample voters (simulated NADRA-style roll, run once)
+// Seed sample voters (simulated NADRA-style roll, with NA/PA constituency mapping)
 app.post("/api/seed-voters", async (req, res) => {
   try {
     const voters = [
@@ -88,7 +93,10 @@ app.post("/api/seed-voters", async (req, res) => {
         cnic: "3520212345671",
         fullName: "Ali Raza",
         dob: "1998-05-14",
-        hasVoted: false,
+        naConstituency: "NA-263",
+        paConstituency: "PB-42",
+        hasVotedNA: false,
+        hasVotedPA: false,
         faceDescriptor: null,
         webAuthnCredentialId: null,
       },
@@ -96,7 +104,10 @@ app.post("/api/seed-voters", async (req, res) => {
         cnic: "3520298765432",
         fullName: "Hina Sheikh",
         dob: "1995-11-02",
-        hasVoted: false,
+        naConstituency: "NA-263",
+        paConstituency: "PB-42",
+        hasVotedNA: false,
+        hasVotedPA: false,
         faceDescriptor: null,
         webAuthnCredentialId: null,
       },
@@ -104,7 +115,10 @@ app.post("/api/seed-voters", async (req, res) => {
         cnic: "3520255566677",
         fullName: "Usman Tariq",
         dob: "2001-02-20",
-        hasVoted: false,
+        naConstituency: "NA-263",
+        paConstituency: "PB-42",
+        hasVotedNA: false,
+        hasVotedPA: false,
         faceDescriptor: null,
         webAuthnCredentialId: null,
       },
@@ -112,12 +126,12 @@ app.post("/api/seed-voters", async (req, res) => {
 
     const batch = db.batch();
     voters.forEach((v) => {
-      const ref = db.collection("voters").doc(v.cnic); // CNIC as document ID
+      const ref = db.collection("voters").doc(v.cnic);
       batch.set(ref, v);
     });
     await batch.commit();
 
-    res.json({ status: "ok", message: "Voters seeded", count: voters.length });
+    res.json({ status: "ok", message: "Voters re-seeded with constituencies", count: voters.length });
   } catch (err) {
     res.status(500).json({ status: "error", message: err.message });
   }
@@ -218,6 +232,60 @@ app.post("/api/webauthn/register-verify", async (req, res) => {
   }
 });
 
+// Public: get list of candidates
+app.get("/api/candidates", async (req, res) => {
+  try {
+    const snapshot = await db.collection("candidates").get();
+    const candidates = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    res.json({ status: "ok", candidates });
+  } catch (err) {
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+// Cast a vote - final step, marks hasVoted true, writes anonymous vote
+app.post("/api/vote", async (req, res) => {
+  try {
+    const { cnic, candidateId } = req.body;
+
+    if (!cnic || !candidateId) {
+      return res.status(400).json({ status: "error", message: "Missing CNIC or candidate" });
+    }
+
+    const voterRef = db.collection("voters").doc(cnic);
+    const voterSnap = await voterRef.get();
+
+    if (!voterSnap.exists) {
+      return res.status(404).json({ status: "error", message: "Voter not found" });
+    }
+
+    const voter = voterSnap.data();
+
+    if (voter.hasVoted) {
+      return res.status(403).json({ status: "error", message: "You have already voted" });
+    }
+
+    const candidateRef = db.collection("candidates").doc(candidateId);
+    const candidateSnap = await candidateRef.get();
+
+    if (!candidateSnap.exists) {
+      return res.status(404).json({ status: "error", message: "Candidate not found" });
+    }
+
+    // Write vote anonymously (no CNIC stored), increment candidate count, mark voter as voted
+    const batch = db.batch();
+    const voteRef = db.collection("votes").doc();
+    batch.set(voteRef, { candidateId, timestamp: Date.now() });
+    batch.update(candidateRef, { voteCount: (candidateSnap.data().voteCount || 0) + 1 });
+    batch.update(voterRef, { hasVoted: true });
+    await batch.commit();
+
+    res.json({ status: "ok", message: "Vote cast successfully" });
+  } catch (err) {
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
 // Verify a live face descriptor against the stored descriptor for a CNIC
 // NOTE: Not yet wired into the voting flow - will be enabled once full flow is built
 /*
@@ -259,3 +327,7 @@ app.post("/api/verify-face", async (req, res) => {
   }
 });
 */
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
