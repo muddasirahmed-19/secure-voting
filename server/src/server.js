@@ -2,8 +2,39 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { db } from "./config/firebaseAdmin.js";
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse,
+} from "@simplewebauthn/server";
+
+const rpName = "Secure Voting Platform";
+const rpID = "localhost"; // change to your real domain when deployed
+const origin = "http://localhost:5173"; // frontend URL
+
+// Temporary in-memory store for challenges (fine for demo; use Redis/Firestore in production)
+const challengeStore = {};
 
 dotenv.config();
+
+
+// Euclidean distance between two face descriptors (128-length arrays)
+// Lower distance = more similar faces. Typical threshold: 0.6
+function euclideanDistance(descriptor1, descriptor2) {
+  if (descriptor1.length !== descriptor2.length) {
+    throw new Error("Descriptor length mismatch");
+  }
+  let sum = 0;
+  for (let i = 0; i < descriptor1.length; i++) {
+    const diff = descriptor1[i] - descriptor2[i];
+    sum += diff * diff;
+  }
+  return Math.sqrt(sum);
+}
+
+const FACE_MATCH_THRESHOLD = 0.6; // face-api.js standard threshold
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -125,3 +156,106 @@ app.post("/api/check-voter", async (req, res) => {
     res.status(500).json({ status: "error", message: err.message });
   }
 });
+
+// Step 1: generate registration options (first-time biometric enroll for a CNIC)
+app.post("/api/webauthn/register-options", async (req, res) => {
+  try {
+    const { cnic } = req.body;
+    const voterRef = db.collection("voters").doc(cnic);
+    const voterSnap = await voterRef.get();
+
+    if (!voterSnap.exists) {
+      return res.status(404).json({ status: "error", message: "Voter not found" });
+    }
+
+    const options = await generateRegistrationOptions({
+      rpName,
+      rpID,
+      userID: Buffer.from(cnic),
+      userName: cnic,
+      attestationType: "none",
+      authenticatorSelection: {
+        userVerification: "required", // forces biometric/PIN, not just "device present"
+      },
+    });
+
+    challengeStore[cnic] = options.challenge;
+    res.json(options);
+  } catch (err) {
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+// Step 2: verify registration response, store credential
+app.post("/api/webauthn/register-verify", async (req, res) => {
+  try {
+    const { cnic, response } = req.body;
+    const expectedChallenge = challengeStore[cnic];
+
+    const verification = await verifyRegistrationResponse({
+      response,
+      expectedChallenge,
+      expectedOrigin: origin,
+      expectedRPID: rpID,
+    });
+
+    if (!verification.verified) {
+      return res.status(403).json({ status: "error", message: "WebAuthn registration failed" });
+    }
+
+    const { credential } = verification.registrationInfo;
+
+    await db.collection("voters").doc(cnic).update({
+      webAuthnCredentialId: credential.id,
+      webAuthnPublicKey: Buffer.from(credential.publicKey).toString("base64"),
+      webAuthnCounter: credential.counter,
+    });
+
+    delete challengeStore[cnic];
+    res.json({ status: "ok", message: "Device biometric registered successfully" });
+  } catch (err) {
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+// Verify a live face descriptor against the stored descriptor for a CNIC
+// NOTE: Not yet wired into the voting flow - will be enabled once full flow is built
+/*
+app.post("/api/verify-face", async (req, res) => {
+  try {
+    const { cnic, descriptor } = req.body;
+
+    if (!cnic || !Array.isArray(descriptor) || descriptor.length !== 128) {
+      return res.status(400).json({ status: "error", message: "Invalid CNIC or descriptor" });
+    }
+
+    const voterRef = db.collection("voters").doc(cnic);
+    const voterSnap = await voterRef.get();
+
+    if (!voterSnap.exists) {
+      return res.status(404).json({ status: "error", message: "Voter not found" });
+    }
+
+    const voter = voterSnap.data();
+
+    if (!voter.faceDescriptor) {
+      return res.status(400).json({ status: "error", message: "No face on file for this voter" });
+    }
+
+    const distance = euclideanDistance(voter.faceDescriptor, descriptor);
+    const isMatch = distance < FACE_MATCH_THRESHOLD;
+
+    if (!isMatch) {
+      return res.status(403).json({
+        status: "error",
+        message: "Face verification failed. Identity could not be confirmed.",
+        distance,
+      });
+    }
+
+    res.json({ status: "ok", message: "Face verified successfully", distance });
+  } catch (err) {
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+*/
