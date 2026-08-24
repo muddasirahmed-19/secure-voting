@@ -137,7 +137,6 @@ app.post("/api/seed-voters", async (req, res) => {
   }
 });
 
-// Check if a CNIC is a registered, eligible voter
 app.post("/api/check-voter", async (req, res) => {
   try {
     const { cnic } = req.body;
@@ -155,15 +154,18 @@ app.post("/api/check-voter", async (req, res) => {
 
     const voter = voterSnap.data();
 
-    if (voter.hasVoted) {
+    if (voter.hasVotedNA && voter.hasVotedPA) {
       return res.status(403).json({ status: "error", message: "You have already voted" });
     }
 
-    // Eligible — return minimal info needed for next step (not the whole record)
     res.json({
       status: "ok",
       message: "Voter eligible",
       fullName: voter.fullName,
+      naConstituency: voter.naConstituency,
+      paConstituency: voter.paConstituency,
+      hasVotedNA: voter.hasVotedNA,
+      hasVotedPA: voter.hasVotedPA,
       hasFaceOnFile: voter.faceDescriptor !== null,
     });
   } catch (err) {
@@ -232,10 +234,16 @@ app.post("/api/webauthn/register-verify", async (req, res) => {
   }
 });
 
-// Public: get list of candidates
+// Public: get candidates filtered by level and constituency
 app.get("/api/candidates", async (req, res) => {
   try {
-    const snapshot = await db.collection("candidates").get();
+    const { level, constituency } = req.query;
+
+    let query = db.collection("candidates");
+    if (level) query = query.where("level", "==", level);
+    if (constituency) query = query.where("constituency", "==", constituency);
+
+    const snapshot = await query.get();
     const candidates = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     res.json({ status: "ok", candidates });
   } catch (err) {
@@ -243,13 +251,13 @@ app.get("/api/candidates", async (req, res) => {
   }
 });
 
-// Cast a vote - final step, marks hasVoted true, writes anonymous vote
+// Cast a vote for NA or PA level - tracks separately, requires both to complete voting
 app.post("/api/vote", async (req, res) => {
   try {
-    const { cnic, candidateId } = req.body;
+    const { cnic, candidateId, level } = req.body;
 
-    if (!cnic || !candidateId) {
-      return res.status(400).json({ status: "error", message: "Missing CNIC or candidate" });
+    if (!cnic || !candidateId || !["NA", "PA"].includes(level)) {
+      return res.status(400).json({ status: "error", message: "Missing or invalid CNIC, candidate, or level" });
     }
 
     const voterRef = db.collection("voters").doc(cnic);
@@ -260,9 +268,10 @@ app.post("/api/vote", async (req, res) => {
     }
 
     const voter = voterSnap.data();
+    const votedField = level === "NA" ? "hasVotedNA" : "hasVotedPA";
 
-    if (voter.hasVoted) {
-      return res.status(403).json({ status: "error", message: "You have already voted" });
+    if (voter[votedField]) {
+      return res.status(403).json({ status: "error", message: `You have already voted at the ${level} level` });
     }
 
     const candidateRef = db.collection("candidates").doc(candidateId);
@@ -272,15 +281,24 @@ app.post("/api/vote", async (req, res) => {
       return res.status(404).json({ status: "error", message: "Candidate not found" });
     }
 
-    // Write vote anonymously (no CNIC stored), increment candidate count, mark voter as voted
+    const candidateData = candidateSnap.data();
+    if (candidateData.level !== level) {
+      return res.status(400).json({ status: "error", message: "Candidate does not match voting level" });
+    }
+
     const batch = db.batch();
     const voteRef = db.collection("votes").doc();
-    batch.set(voteRef, { candidateId, timestamp: Date.now() });
-    batch.update(candidateRef, { voteCount: (candidateSnap.data().voteCount || 0) + 1 });
-    batch.update(voterRef, { hasVoted: true });
+    batch.set(voteRef, {
+      candidateId,
+      level,
+      constituency: candidateData.constituency,
+      timestamp: Date.now(),
+    });
+    batch.update(candidateRef, { voteCount: (candidateData.voteCount || 0) + 1 });
+    batch.update(voterRef, { [votedField]: true });
     await batch.commit();
 
-    res.json({ status: "ok", message: "Vote cast successfully" });
+    res.json({ status: "ok", message: `${level} vote cast successfully` });
   } catch (err) {
     res.status(500).json({ status: "error", message: err.message });
   }
