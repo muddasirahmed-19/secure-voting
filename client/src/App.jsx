@@ -32,10 +32,25 @@ function App() {
   const handleNAVoted = () => setStep("PA");
   const handlePAVoted = () => setStep("done");
 
-  const showResults = step === "NA" || step === "PA";
+  const handleSkipNA = () => setStep("PA");
+  const handleSkipPA = () => setStep("done");
+
   const resultsLevel = step === "PA" ? "PA" : "NA";
   const resultsConstituency =
-    step === "PA" ? voter?.paConstituency : voter?.naConstituency;
+    step === "PA"
+      ? voter?.paConstituency
+      : step === "NA"
+      ? voter?.naConstituency
+      : undefined;
+
+  const letterheadRight = {
+    cnic: "Identity Check",
+    face: "Biometric Verification",
+    webauthn: "Device Verification",
+    NA: "National Assembly Ballot",
+    PA: "Provincial Assembly Ballot",
+    done: "Confirmation",
+  }[step];
 
   return (
     <div className="app-shell">
@@ -44,46 +59,53 @@ function App() {
         <p>Demo project — simulated data, not connected to NADRA or any government system.</p>
       </header>
 
-      <main className="app-body">
-        <div>
-          {step === "cnic" && <VoterCheck onEligible={handleEligible} />}
-
-          {step === "face" && <FaceCapture onCaptured={handleFaceCaptured} />}
-
-          {step === "webauthn" && (
-            <WebAuthnSetup cnic={voter.cnic} onVerified={handleWebAuthnVerified} />
-          )}
-
-          {step === "NA" && (
-            <Ballot
-              cnic={voter.cnic}
-              level="NA"
-              constituency={voter.naConstituency}
-              onVoted={handleNAVoted}
-            />
-          )}
-
-          {step === "PA" && (
-            <Ballot
-              cnic={voter.cnic}
-              level="PA"
-              constituency={voter.paConstituency}
-              onVoted={handlePAVoted}
-            />
-          )}
-
-          {step === "done" && (
-            <div className="done-message">
-              <h2>Thank you, {voter.fullName}.</h2>
-              <p>Your ballots have been recorded. You may now close this page.</p>
+      <div className="app-stage">
+        <main className="app-body">
+          <div className="document-wrap">
+            <div className="document-letterhead">
+              <span>Official Ballot — Demo</span>
+              <span>{letterheadRight}</span>
             </div>
-          )}
-        </div>
 
-        {showResults && resultsConstituency && (
+            {step === "cnic" && <VoterCheck onEligible={handleEligible} />}
+
+            {step === "face" && <FaceCapture onCaptured={handleFaceCaptured} />}
+
+            {step === "webauthn" && (
+              <WebAuthnSetup cnic={voter.cnic} onVerified={handleWebAuthnVerified} />
+            )}
+
+            {step === "NA" && (
+              <Ballot
+                cnic={voter.cnic}
+                level="NA"
+                constituency={voter.naConstituency}
+                onVoted={handleNAVoted}
+                onSkip={handleSkipNA}
+              />
+            )}
+
+            {step === "PA" && (
+              <Ballot
+                cnic={voter.cnic}
+                level="PA"
+                constituency={voter.paConstituency}
+                onVoted={handlePAVoted}
+                onSkip={handleSkipPA}
+              />
+            )}
+
+            {step === "done" && (
+              <div className="done-message">
+                <h2>Thank you, {voter.fullName}.</h2>
+                <p>Your ballots have been recorded. You may now close this page.</p>
+              </div>
+            )}
+          </div>
+
           <ResultsPanel level={resultsLevel} constituency={resultsConstituency} />
-        )}
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
