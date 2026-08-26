@@ -59,9 +59,10 @@ export default function FaceCapture({ cnic, hasFaceOnFile, onVerified }) {
     const descriptorArray = Array.from(detection.descriptor);
 
     if (!hasFaceOnFile) {
-  // TEMP BYPASS: no face on file yet for most demo voters - skip verification for now
-  setStatus("No face on file — skipping verification (demo bypass).");
-  onVerified();
+  setError(
+    "No face on file for this voter in the demo dataset, so identity cannot be verified. This CNIC was not part of the sample-enrolled voters."
+  );
+  setStatus("Verification unavailable for this voter.");
   return;
 }
 

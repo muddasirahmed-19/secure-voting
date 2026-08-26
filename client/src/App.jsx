@@ -5,10 +5,17 @@ import FaceCapture from "./components/FaceCapture";
 import WebAuthnSetup from "./components/WebAuthnSetup";
 import Ballot from "./components/Ballot";
 import ResultsPanel from "./components/ResultsPanel";
+import AdminEnroll from "./components/AdminEnroll";
 
 function App() {
   const [voter, setVoter] = useState(null);
   const [step, setStep] = useState("cnic"); // cnic -> face -> webauthn -> NA -> PA -> done
+
+  // Temporary: visit ?admin=1 in the URL to reach the face-enrollment tool
+  const isAdmin = new URLSearchParams(window.location.search).get("admin") === "1";
+  if (isAdmin) {
+    return <AdminEnroll />;
+  }
 
   const handleEligible = (data) => {
     setVoter(data);
