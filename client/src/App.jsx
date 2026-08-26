@@ -1,47 +1,89 @@
 import { useState } from "react";
+import "./App.css";
+import VoterCheck from "./components/VoterCheck";
+import FaceCapture from "./components/FaceCapture";
+import WebAuthnSetup from "./components/WebAuthnSetup";
 import Ballot from "./components/Ballot";
+import ResultsPanel from "./components/ResultsPanel";
 
 function App() {
   const [voter, setVoter] = useState(null);
-  const [step, setStep] = useState("NA"); // "NA" -> "PA" -> "done"
+  const [step, setStep] = useState("cnic"); // cnic -> face -> webauthn -> NA -> PA -> done
 
-  // Temporary hardcoded voter for testing (later replaced by real CNIC entry flow)
-  const testVoter = {
-    cnic: "3520255566677",
-    naConstituency: "NA-263",
-    paConstituency: "PB-42",
+  const handleEligible = (data) => {
+    setVoter(data);
+    setStep("face");
+  };
+
+  const handleFaceCaptured = () => {
+    setStep("webauthn");
+  };
+
+  const handleWebAuthnVerified = () => {
+    if (voter.hasVotedNA && voter.hasVotedPA) {
+      setStep("done");
+    } else if (voter.hasVotedNA) {
+      setStep("PA");
+    } else {
+      setStep("NA");
+    }
   };
 
   const handleNAVoted = () => setStep("PA");
   const handlePAVoted = () => setStep("done");
 
+  const showResults = step === "NA" || step === "PA";
+  const resultsLevel = step === "PA" ? "PA" : "NA";
+  const resultsConstituency =
+    step === "PA" ? voter?.paConstituency : voter?.naConstituency;
+
   return (
-    <div style={{ padding: "2rem", fontFamily: "sans-serif" }}>
-      <h1>Online Voting System</h1>
+    <div className="app-shell">
+      <header className="app-header">
+        <h1>Online Voting System</h1>
+        <p>Demo project — simulated data, not connected to NADRA or any government system.</p>
+      </header>
 
-      {step === "NA" && (
-        <Ballot
-          cnic={testVoter.cnic}
-          level="NA"
-          constituency={testVoter.naConstituency}
-          onVoted={handleNAVoted}
-        />
-      )}
+      <main className="app-body">
+        <div>
+          {step === "cnic" && <VoterCheck onEligible={handleEligible} />}
 
-      {step === "PA" && (
-        <Ballot
-          cnic={testVoter.cnic}
-          level="PA"
-          constituency={testVoter.paConstituency}
-          onVoted={handlePAVoted}
-        />
-      )}
+          {step === "face" && <FaceCapture onCaptured={handleFaceCaptured} />}
 
-      {step === "done" && (
-        <p style={{ textAlign: "center", color: "green", fontSize: "1.2rem" }}>
-          Thank you for voting! Both ballots submitted.
-        </p>
-      )}
+          {step === "webauthn" && (
+            <WebAuthnSetup cnic={voter.cnic} onVerified={handleWebAuthnVerified} />
+          )}
+
+          {step === "NA" && (
+            <Ballot
+              cnic={voter.cnic}
+              level="NA"
+              constituency={voter.naConstituency}
+              onVoted={handleNAVoted}
+            />
+          )}
+
+          {step === "PA" && (
+            <Ballot
+              cnic={voter.cnic}
+              level="PA"
+              constituency={voter.paConstituency}
+              onVoted={handlePAVoted}
+            />
+          )}
+
+          {step === "done" && (
+            <div className="done-message">
+              <h2>Thank you, {voter.fullName}.</h2>
+              <p>Your ballots have been recorded. You may now close this page.</p>
+            </div>
+          )}
+        </div>
+
+        {showResults && resultsConstituency && (
+          <ResultsPanel level={resultsLevel} constituency={resultsConstituency} />
+        )}
+      </main>
     </div>
   );
 }

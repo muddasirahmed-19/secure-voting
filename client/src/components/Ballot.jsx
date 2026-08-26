@@ -50,30 +50,34 @@ export default function Ballot({ cnic, level, constituency, onVoted }) {
     }
   };
 
-  if (loading) return <p style={{ textAlign: "center" }}>Loading candidates...</p>;
+  if (loading) {
+    return (
+      <div className="ballot-card">
+        <p className="ballot-sub">Loading candidates...</p>
+      </div>
+    );
+  }
 
-  const ballotColor = level === "NA" ? "#2e7d32" : "#616161"; // green for NA, grey/white-ish border for PA
-  const ballotLabel = level === "NA" ? "Green Ballot — National Assembly" : "White Ballot — Provincial Assembly";
+  const isNA = level === "NA";
+  const ballotLabel = isNA ? "Green Ballot" : "White Ballot";
+  const assemblyLabel = isNA
+    ? "National Assembly"
+    : "Provincial Assembly";
+  const stepLabel = isNA ? "Step 3 of 4" : "Step 4 of 4";
 
   return (
-    <div style={{ maxWidth: "420px", margin: "2rem auto", fontFamily: "sans-serif" }}>
-      <h2 style={{ color: ballotColor }}>{ballotLabel}</h2>
-      <p style={{ color: "#555" }}>Constituency: {constituency}</p>
+    <div className="ballot-card">
+      <span className="ballot-eyebrow">{stepLabel} — {ballotLabel}</span>
+      <h2 className={`ballot-title ${isNA ? "" : "pa"}`}>{assemblyLabel}</h2>
+      <p className="ballot-sub">Constituency: {constituency}</p>
 
-      {error && <p style={{ color: "red", fontWeight: "bold" }}>{error}</p>}
+      {error && <div className="error-banner">{error}</div>}
 
-      <div>
+      <div className="candidate-list">
         {candidates.map((c) => (
           <label
             key={c.id}
-            style={{
-              display: "block",
-              padding: "12px",
-              marginBottom: "8px",
-              border: selected === c.id ? `2px solid ${ballotColor}` : "1px solid #ccc",
-              borderRadius: "6px",
-              cursor: "pointer",
-            }}
+            className={`candidate-option ${selected === c.id ? "selected" : ""}`}
           >
             <input
               type="radio"
@@ -81,18 +85,17 @@ export default function Ballot({ cnic, level, constituency, onVoted }) {
               value={c.id}
               checked={selected === c.id}
               onChange={() => setSelected(c.id)}
-              style={{ marginRight: "10px" }}
             />
-            <strong>{c.name}</strong> — {c.party}
+            <span>
+              <span className="candidate-name">{c.name}</span>
+              <br />
+              <span className="candidate-party">{c.party}</span>
+            </span>
           </label>
         ))}
       </div>
 
-      <button
-        onClick={handleSubmit}
-        disabled={submitting}
-        style={{ marginTop: "1rem", padding: "10px 20px", width: "100%", fontSize: "1rem" }}
-      >
+      <button className="btn-primary" onClick={handleSubmit} disabled={submitting}>
         {submitting ? "Submitting..." : `Submit ${level} Vote`}
       </button>
     </div>

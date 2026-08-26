@@ -12,7 +12,6 @@ export default function WebAuthnSetup({ cnic, onVerified }) {
     setStatus("Requesting device biometric...");
 
     try {
-      // Step 1: get registration options from backend
       const optionsRes = await fetch("/api/webauthn/register-options", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -26,10 +25,8 @@ export default function WebAuthnSetup({ cnic, onVerified }) {
         return;
       }
 
-      // Step 2: trigger browser's native biometric prompt (fingerprint/FaceID/Windows Hello)
       const registrationResponse = await startRegistration({ optionsJSON: options });
 
-      // Step 3: send response back to backend for verification
       const verifyRes = await fetch("/api/webauthn/register-verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -46,23 +43,19 @@ export default function WebAuthnSetup({ cnic, onVerified }) {
       setStatus("Device biometric verified successfully.");
       onVerified();
     } catch (err) {
-      // User cancelled the prompt, or device has no biometric available
       setError("Verification cancelled or unavailable: " + err.message);
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: "400px", margin: "2rem auto", textAlign: "center" }}>
-      <h3>Device Verification</h3>
-      <p style={{ color: "#555" }}>{status}</p>
-      {error && <p style={{ color: "red", fontWeight: "bold" }}>{error}</p>}
+    <div className="ballot-card" style={{ textAlign: "center" }}>
+      <span className="ballot-eyebrow">Step 3 of 4</span>
+      <h2 className="ballot-title">Device Verification</h2>
+      <p className="ballot-sub">{status}</p>
+      {error && <div className="error-banner">{error}</div>}
 
-      <button
-        onClick={handleRegister}
-        disabled={loading}
-        style={{ padding: "10px 20px", fontSize: "1rem" }}
-      >
+      <button className="btn-primary" onClick={handleRegister} disabled={loading}>
         {loading ? "Verifying..." : "Verify with Fingerprint / Face ID"}
       </button>
     </div>

@@ -29,8 +29,15 @@ export default function VoterCheck({ onEligible }) {
         return;
       }
 
-      // Eligible - pass data up to parent to move to next step
-      onEligible({ cnic, fullName: result.fullName, hasFaceOnFile: result.hasFaceOnFile });
+      onEligible({
+        cnic,
+        fullName: result.fullName,
+        naConstituency: result.naConstituency,
+        paConstituency: result.paConstituency,
+        hasFaceOnFile: result.hasFaceOnFile,
+        hasVotedNA: result.hasVotedNA,
+        hasVotedPA: result.hasVotedPA,
+      });
     } catch (err) {
       setError("Could not reach server. Try again.");
       setLoading(false);
@@ -38,29 +45,27 @@ export default function VoterCheck({ onEligible }) {
   };
 
   return (
-    <div style={{ maxWidth: "400px", margin: "3rem auto", fontFamily: "sans-serif" }}>
-      <h2>Voter Verification</h2>
-      <p style={{ color: "#555" }}>Enter your CNIC to begin voting.</p>
+    <div className="ballot-card">
+      <span className="ballot-eyebrow">Step 1 of 4</span>
+      <h2 className="ballot-title">Voter Verification</h2>
+      <p className="ballot-sub">Enter your CNIC to begin voting.</p>
+
+      {error && <div className="error-banner">{error}</div>}
 
       <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          value={cnic}
-          onChange={(e) => setCnic(e.target.value.replace(/\D/g, ""))}
-          placeholder="3520212345671"
-          maxLength={13}
-          style={{ width: "100%", padding: "10px", fontSize: "1rem", marginBottom: "0.5rem" }}
-        />
+        <div className="field-group">
+          <label htmlFor="cnic">CNIC Number</label>
+          <input
+            id="cnic"
+            type="text"
+            value={cnic}
+            onChange={(e) => setCnic(e.target.value.replace(/\D/g, ""))}
+            placeholder="3520212345671"
+            maxLength={13}
+          />
+        </div>
 
-        {error && (
-          <p style={{ color: "red", fontWeight: "bold", marginBottom: "0.5rem" }}>{error}</p>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading}
-          style={{ padding: "10px 20px", width: "100%", fontSize: "1rem" }}
-        >
+        <button type="submit" className="btn-primary" disabled={loading}>
           {loading ? "Checking..." : "Continue"}
         </button>
       </form>

@@ -7,7 +7,6 @@ export default function FaceCapture({ onCaptured }) {
   const [status, setStatus] = useState("Loading models...");
   const [error, setError] = useState(null);
 
-  // Load models on mount
   useEffect(() => {
     const loadModels = async () => {
       try {
@@ -24,7 +23,6 @@ export default function FaceCapture({ onCaptured }) {
     loadModels();
   }, []);
 
-  // Start webcam once models are ready
   useEffect(() => {
     if (!modelsLoaded) return;
 
@@ -58,16 +56,16 @@ export default function FaceCapture({ onCaptured }) {
     }
 
     setStatus("Face captured successfully.");
-    // descriptor is a Float32Array of 128 values - convert to plain array for JSON/Firestore
     const descriptorArray = Array.from(detection.descriptor);
     onCaptured(descriptorArray);
   };
 
   return (
-    <div style={{ maxWidth: "400px", margin: "2rem auto", textAlign: "center" }}>
-      <h3>Face Verification</h3>
-      <p style={{ color: "#555" }}>{status}</p>
-      {error && <p style={{ color: "red", fontWeight: "bold" }}>{error}</p>}
+    <div className="ballot-card" style={{ textAlign: "center" }}>
+      <span className="ballot-eyebrow">Step 2 of 4</span>
+      <h2 className="ballot-title">Face Verification</h2>
+      <p className="ballot-sub">{status}</p>
+      {error && <div className="error-banner">{error}</div>}
 
       <video
         ref={videoRef}
@@ -75,15 +73,15 @@ export default function FaceCapture({ onCaptured }) {
         muted
         width="320"
         height="240"
-        style={{ border: "1px solid #ccc", borderRadius: "8px" }}
+        style={{
+          border: "1px solid var(--border)",
+          borderRadius: "4px",
+          maxWidth: "100%",
+        }}
       />
 
-      <div>
-        <button
-          onClick={handleCapture}
-          disabled={!modelsLoaded}
-          style={{ marginTop: "1rem", padding: "10px 20px", fontSize: "1rem" }}
-        >
+      <div style={{ marginTop: "1.25rem" }}>
+        <button className="btn-primary" onClick={handleCapture} disabled={!modelsLoaded}>
           Capture Face
         </button>
       </div>

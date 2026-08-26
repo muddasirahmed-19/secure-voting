@@ -306,7 +306,7 @@ app.post("/api/vote", async (req, res) => {
 
 // Verify a live face descriptor against the stored descriptor for a CNIC
 // NOTE: Not yet wired into the voting flow - will be enabled once full flow is built
-/*
+
 app.post("/api/verify-face", async (req, res) => {
   try {
     const { cnic, descriptor } = req.body;
@@ -344,7 +344,7 @@ app.post("/api/verify-face", async (req, res) => {
     res.status(500).json({ status: "error", message: err.message });
   }
 });
-*/
+
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
