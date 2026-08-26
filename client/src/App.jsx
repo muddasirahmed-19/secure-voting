@@ -46,7 +46,7 @@ function App() {
   const letterheadRight = {
     cnic: "Identity Check",
     face: "Biometric Verification",
-    webauthn: "Device Verification",
+    webauthn: "Fingerprint Verification",
     NA: "National Assembly Ballot",
     PA: "Provincial Assembly Ballot",
     done: "Confirmation",
@@ -69,7 +69,13 @@ function App() {
 
             {step === "cnic" && <VoterCheck onEligible={handleEligible} />}
 
-            {step === "face" && <FaceCapture onCaptured={handleFaceCaptured} />}
+            {step === "face" && (
+              <FaceCapture
+                cnic={voter.cnic}
+                hasFaceOnFile={voter.hasFaceOnFile}
+                onVerified={handleFaceCaptured}
+              />
+            )}
 
             {step === "webauthn" && (
               <WebAuthnSetup cnic={voter.cnic} onVerified={handleWebAuthnVerified} />

@@ -1,11 +1,12 @@
 import { useRef, useEffect, useState } from "react";
 import * as faceapi from "face-api.js";
 
-export default function FaceCapture({ onCaptured }) {
+export default function FaceCapture({ cnic, hasFaceOnFile, onVerified }) {
   const videoRef = useRef(null);
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [status, setStatus] = useState("Loading models...");
   const [error, setError] = useState(null);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     const loadModels = async () => {
@@ -55,9 +56,39 @@ export default function FaceCapture({ onCaptured }) {
       return;
     }
 
-    setStatus("Face captured successfully.");
     const descriptorArray = Array.from(detection.descriptor);
-    onCaptured(descriptorArray);
+
+    if (!hasFaceOnFile) {
+  // TEMP BYPASS: no face on file yet for most demo voters - skip verification for now
+  setStatus("No face on file — skipping verification (demo bypass).");
+  onVerified();
+  return;
+}
+
+    setVerifying(true);
+    setStatus("Verifying identity against records...");
+
+    try {
+      const res = await fetch("/api/verify-face", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cnic, descriptor: descriptorArray }),
+      });
+      const result = await res.json();
+
+      if (!res.ok) {
+        setError(result.message || "Face verification failed.");
+        setStatus("Verification failed. Try again.");
+        setVerifying(false);
+        return;
+      }
+
+      setStatus("Identity verified successfully.");
+      onVerified();
+    } catch (err) {
+      setError("Could not reach server. Try again.");
+      setVerifying(false);
+    }
   };
 
   return (
@@ -81,8 +112,12 @@ export default function FaceCapture({ onCaptured }) {
       />
 
       <div style={{ marginTop: "1.25rem" }}>
-        <button className="btn-primary" onClick={handleCapture} disabled={!modelsLoaded}>
-          Capture Face
+        <button
+          className="btn-primary"
+          onClick={handleCapture}
+          disabled={!modelsLoaded || verifying}
+        >
+          {verifying ? "Verifying..." : "Capture & Verify Face"}
         </button>
       </div>
     </div>

@@ -51,7 +51,10 @@ export default function WebAuthnSetup({ cnic, onVerified }) {
   return (
     <div className="ballot-card" style={{ textAlign: "center" }}>
       <span className="ballot-eyebrow">Step 3 of 4</span>
-      <h2 className="ballot-title">Device Verification</h2>
+      <h2 className="ballot-title">Fingerprint Verification</h2>
+      <p className="ballot-sub" style={{ marginTop: "-0.5rem" }}>
+        Uses your device's built-in fingerprint or Face ID sensor.
+      </p>
       <p className="ballot-sub">{status}</p>
       {error && <div className="error-banner">{error}</div>}
 

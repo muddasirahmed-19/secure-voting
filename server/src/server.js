@@ -10,8 +10,8 @@ import {
 } from "@simplewebauthn/server";
 
 const rpName = "Secure Voting Platform";
-const rpID = "localhost"; // change to your real domain when deployed
-const origin = "http://localhost:5173"; // frontend URL
+const rpID = process.env.RP_ID || "localhost";
+const origin = process.env.ORIGIN || "http://localhost:5173";
 
 // Temporary in-memory store for challenges (fine for demo; use Redis/Firestore in production)
 const challengeStore = {};
