@@ -1,52 +1,41 @@
 # Secure Voting Platform (Demo)
 
-A proof of concept online voting system for Pakistan, simulating how identity
-verification and a dual ballot (National + Provincial Assembly) election
-could work online.
+A demo online voting system simulating Pakistan's dual ballot election
+(National + Provincial Assembly), with CNIC lookup, face recognition, and
+WebAuthn fingerprint verification. **Not a real voting system,** no NADRA
+connection, all voters and candidates are fictional sample data.
 
-**This is a demo project, not a real voting system.** It does not
-connect to NADRA or any government database. All voters, candidates, and
-constituencies are fictional sample data used to demonstrate the concept.
+## Stack
 
-## What it does
+React (Vite) · Node.js/Express · Firebase Firestore · face-api.js ·
+@simplewebauthn
 
-- Looks up a voter by CNIC against a pre-seeded "voter roll"
-- Verifies identity using face recognition (face-api.js) and device
-  biometrics (WebAuthn - fingerprint/Face ID/Windows Hello)
-- Presents two separate ballots per Pakistan's real system:
-  - **Green Ballot:** National Assembly (NA) candidate, filtered by the
-    voter's NA constituency
-  - **White Ballot:** Provincial Assembly (PA) candidate, filtered by the
-    voter's PA constituency
-- Prevents double voting per ballot level
-- Stores votes anonymously; never linked back to a CNIC
+## How it works
 
-## Tech stack
+1. Voter enters CNIC >> checked against a preseeded voter roll
+2. Face verification (live webcam vs stored descriptor)
+3. Fingerprint verification (WebAuthn, device sensor)
+4. Green Ballot (National Assembly) >> White Ballot (Provincial Assembly)
+5. Vote stored anonymously, never linked to the CNIC
 
-- **Frontend:** React (Vite), face-api.js, @simplewebauthn/browser
-- **Backend:** Node.js, Express, @simplewebauthn/server
-- **Database:** Firebase Firestore (Admin SDK on backend only, all writes
-  go through the server, never directly from the client)
+All sensitive checks (eligibility, face match, vote casting) run server side
+only, Firestore security rules block direct client writes.
 
-## Security notes
+## Run it locally
 
-- Firestore security rules block all direct client reads/writes; every
-  sensitive action is validated server side
-- Face matching (Euclidean distance on face descriptors) happens on the
-  backend so it can't be bypassed via browser dev tools
-- WebAuthn never exposes raw biometric data to the browser or server, it
-  only returns a cryptographic proof of device level verification, the same
-  trust model real banking apps use
-- Since no public API can access NADRA's actual biometric database, this
-  project uses self seeded sample data to demonstrate the same verification
-  logic that would apply to a real integration
+1. `npm install` in both `client/` and `server/`
+2. Create a free Firebase project >> enable Firestore
+3. Add a service account key as `server/src/config/serviceAccountKey.json`
+4. Add your web app config to `client/src/firebase.js`
+5. `npm run dev` in `server/`, then `npm run dev` in `client/`
+6. Seed data: `POST /api/seed-voters` and `POST /api/seed-candidates`
+7. Visit `/?admin=1` to enroll a face for a test CNIC, then vote at `/`
 
 ## Status
 
-Actively in development.
+Core flow works end to end. Styling and results dashboard still evolving.
 
-## Possible future direction
+## Future idea
 
-A later phase could move vote tallying to a blockchain smart contract for
-public auditability and immutability, while keeping identity/biometric data
-off chain for privacy.
+Move vote tallying to a blockchain smart contract for public auditability,
+keeping identity data off-chain.
